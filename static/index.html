@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product Catalog</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .card-enter { animation: fadeSlideIn 0.25s ease both; }
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen" x-data="catalog()" x-init="init()" x-cloak>
+
+  <!-- Header -->
+  <header class="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+          </svg>
+        </div>
+        <h1 class="text-xl font-bold text-gray-900">Product Catalog</h1>
+      </div>
+
+      <div class="sm:ml-auto flex flex-wrap items-center gap-3">
+        <!-- Category filter -->
+        <select
+          x-model="selectedCategory"
+          @change="reset()"
+          class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+        >
+          <option value="">All categories</option>
+          <template x-for="cat in categories" :key="cat">
+            <option :value="cat" x-text="cat"></option>
+          </template>
+        </select>
+
+        <!-- Stats pill -->
+        <span
+          x-show="loaded > 0"
+          class="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full px-3 py-1 font-medium"
+          x-text="`${loaded.toLocaleString()} products loaded`"
+        ></span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+
+    <!-- Error banner -->
+    <div x-show="error" class="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm" x-text="error"></div>
+
+    <!-- Skeleton loader (first load) -->
+    <div x-show="firstLoad && loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+      <template x-for="i in 12" :key="i">
+        <div class="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
+          <div class="h-3 bg-gray-200 rounded w-1/3 mb-3"></div>
+          <div class="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
+          <div class="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+          <div class="h-6 bg-gray-200 rounded w-1/4"></div>
+        </div>
+      </template>
+    </div>
+
+    <!-- Products grid -->
+    <div
+      x-show="!firstLoad || !loading"
+      class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
+    >
+      <template x-for="p in products" :key="p.id">
+        <div class="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow duration-200 card-enter">
+          <!-- Category badge -->
+          <span
+            class="inline-block text-xs font-semibold px-2 py-0.5 rounded-full mb-2"
+            :class="categoryColor(p.category)"
+            x-text="p.category"
+          ></span>
+          <!-- Name -->
+          <h3 class="text-sm font-semibold text-gray-800 leading-snug mb-1 line-clamp-2" x-text="p.name"></h3>
+          <!-- Updated at -->
+          <p class="text-xs text-gray-400 mb-3" x-text="'Updated ' + relativeTime(p.updated_at)"></p>
+          <!-- Price -->
+          <p class="text-lg font-bold text-indigo-600" x-text="'$' + Number(p.price).toFixed(2)"></p>
+        </div>
+      </template>
+    </div>
+
+    <!-- Empty state -->
+    <div x-show="!loading && products.length === 0 && !firstLoad" class="text-center py-24 text-gray-400">
+      <svg class="mx-auto w-12 h-12 mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+      </svg>
+      <p class="font-medium">No products found</p>
+      <p class="text-sm mt-1">Try a different category</p>
+    </div>
+
+    <!-- Load more -->
+    <div class="mt-10 flex flex-col items-center gap-3">
+      <button
+        x-show="hasMore"
+        @click="loadMore()"
+        :disabled="loading"
+        class="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors duration-150 flex items-center gap-2"
+      >
+        <svg x-show="loading && !firstLoad" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+        </svg>
+        <span x-text="loading && !firstLoad ? 'Loading…' : 'Load more'"></span>
+      </button>
+      <p x-show="!hasMore && loaded > 0" class="text-sm text-gray-400">
+        All <span x-text="loaded.toLocaleString()"></span> products loaded
+      </p>
+    </div>
+  </main>
+
+  <script>
+    const API = '';   // same origin; change to e.g. 'https://your-api.onrender.com' if separate
+
+    const CATEGORY_COLORS = {
+      Electronics: 'bg-blue-100 text-blue-700',
+      Clothing:    'bg-pink-100 text-pink-700',
+      Books:       'bg-amber-100 text-amber-700',
+      Sports:      'bg-green-100 text-green-700',
+      Home:        'bg-orange-100 text-orange-700',
+      Beauty:      'bg-rose-100 text-rose-700',
+      Toys:        'bg-purple-100 text-purple-700',
+      Food:        'bg-lime-100 text-lime-700',
+      Automotive:  'bg-slate-100 text-slate-700',
+      Health:      'bg-teal-100 text-teal-700',
+    };
+
+    function catalog() {
+      return {
+        products: [],
+        categories: [],
+        selectedCategory: '',
+        cursor: null,
+        hasMore: true,
+        loading: false,
+        firstLoad: true,
+        loaded: 0,
+        error: '',
+
+        async init() {
+          await this.fetchCategories();
+          await this.loadMore();
+        },
+
+        async fetchCategories() {
+          try {
+            const res = await fetch(`${API}/products/categories`);
+            const data = await res.json();
+            this.categories = data.categories;
+          } catch (e) {
+            /* non-critical */
+          }
+        },
+
+        reset() {
+          this.products = [];
+          this.cursor = null;
+          this.hasMore = true;
+          this.loaded = 0;
+          this.firstLoad = true;
+          this.loadMore();
+        },
+
+        async loadMore() {
+          if (this.loading || !this.hasMore) return;
+          this.loading = true;
+          this.error = '';
+
+          try {
+            const params = new URLSearchParams({ limit: 24 });
+            if (this.cursor) params.set('cursor', this.cursor);
+            if (this.selectedCategory) params.set('category', this.selectedCategory);
+
+            const res = await fetch(`${API}/products?${params}`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+            const data = await res.json();
+            this.products.push(...data.products);
+            this.cursor = data.next_cursor;
+            this.hasMore = data.has_more;
+            this.loaded += data.count;
+          } catch (e) {
+            this.error = `Failed to load products: ${e.message}`;
+          } finally {
+            this.loading = false;
+            this.firstLoad = false;
+          }
+        },
+
+        categoryColor(cat) {
+          return CATEGORY_COLORS[cat] || 'bg-gray-100 text-gray-600';
+        },
+
+        relativeTime(iso) {
+          const diff = Date.now() - new Date(iso).getTime();
+          const mins = Math.floor(diff / 60000);
+          if (mins < 60)   return `${mins}m ago`;
+          const hrs = Math.floor(mins / 60);
+          if (hrs < 24)    return `${hrs}h ago`;
+          return `${Math.floor(hrs / 24)}d ago`;
+        },
+      };
+    }
+  </script>
+</body>
+</html>

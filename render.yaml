@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: product-catalog-api
+    runtime: node
+    buildCommand: npm install
+    startCommand: node src/server.js
+    envVars:
+      - key: DATABASE_URL
+        sync: false          # set manually in Render dashboard
+      - key: DB_MAX_CONNECTIONS
+        value: "10"
+      - key: DB_MIN_CONNECTIONS
+        value: "2"
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: NODE_ENV
+        value: production
+    healthCheckPath: /health
