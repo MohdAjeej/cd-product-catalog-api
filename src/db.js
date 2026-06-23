@@ -1,45 +1,20 @@
-import pg from 'pg';
+import { createClient } from '@supabase/supabase-js';
 import { config } from './config.js';
 
-const { Pool } = pg;
+/** @type {import('@supabase/supabase-js').SupabaseClient | null} */
+let _client = null;
 
-/** @type {pg.Pool | null} */
-let pool = null;
-
-// Supabase / Neon and any URL with sslmode=require need SSL
-function sslConfig(url) {
-  const needsSsl =
-    url.includes('.supabase.co') ||
-    url.includes('.supabase.com') ||
-    url.includes('.neon.tech') ||
-    url.includes('sslmode=require');
-  return needsSsl ? { rejectUnauthorized: false } : undefined;
-}
-
-export async function initPool() {
-  pool = new Pool({
-    connectionString:    config.DATABASE_URL,
-    max:                 config.DB_MAX_CONNECTIONS,
-    min:                 config.DB_MIN_CONNECTIONS,
-    idleTimeoutMillis:   30_000,
-    connectionTimeoutMillis: 5_000,
-    ssl:                 sslConfig(config.DATABASE_URL),
+export function initDB() {
+  _client = createClient(config.SUPABASE_URL, config.SUPABASE_KEY, {
+    auth: { persistSession: false },  // server-side: no session storage needed
   });
-
-  // Validate connection at startup
-  const client = await pool.connect();
-  client.release();
-  return pool;
+  return _client;
 }
 
-export function getPool() {
-  if (!pool) throw new Error('Database pool not initialised');
-  return pool;
+export function getDB() {
+  if (!_client) throw new Error('Supabase client not initialised');
+  return _client;
 }
 
-export async function closePool() {
-  if (pool) {
-    await pool.end();
-    pool = null;
-  }
-}
+// HTTP client — no persistent connections to close
+export async function closeDB() {}

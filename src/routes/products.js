@@ -1,20 +1,25 @@
-import { getPool }            from '../db.js';
+import { getDB }                      from '../db.js';
 import { encodeCursor, decodeCursor } from '../cursor.js';
 
 const MAX_LIMIT = 100;
 
-// Shared JSON Schema fragment for a single product
 const PRODUCT_SCHEMA = {
   type: 'object',
   properties: {
     id:         { type: 'string' },
     name:       { type: 'string' },
     category:   { type: 'string' },
-    price:      { type: 'string' },           // pg returns NUMERIC as string
+    price:      { type: 'string' },
     created_at: { type: 'string' },
     updated_at: { type: 'string' },
   },
 };
+
+function dbError(err) {
+  const e = new Error(err.message || 'Database error');
+  e.statusCode = 500;
+  return e;
+}
 
 /** @type {import('fastify').FastifyPluginAsync} */
 export default async function productsPlugin(app) {
@@ -44,51 +49,47 @@ export default async function productsPlugin(app) {
     },
   }, async (req) => {
     const { cursor, limit = 20, category } = req.query;
-    const pool = getPool();
+    const supabase = getDB();
 
-    let rows;
+    // Build query incrementally
+    let query = supabase
+      .from('products')
+      .select('id, name, category, price, created_at, updated_at');
 
+    // Optional category filter
+    if (category) query = query.eq('category', category);
+
+    // Cursor condition:
+    //   (updated_at < cursor_ts) OR (updated_at = cursor_ts AND id < cursor_id)
+    // PostgREST supports nested and() inside or() for exactly this pattern.
     if (cursor) {
       const { updatedAt, id } = decodeCursor(cursor);
-      const { rows: r } = await pool.query(
-        `SELECT id, name, category, price, created_at, updated_at
-         FROM   products
-         WHERE  ($1::TEXT IS NULL OR category = $1)
-           AND  (
-                  updated_at < $2
-               OR (updated_at = $2 AND id < $3::UUID)
-                )
-         ORDER  BY updated_at DESC, id DESC
-         LIMIT  $4`,
-        [category ?? null, updatedAt, id, limit + 1],
-      );
-      rows = r;
-    } else {
-      const { rows: r } = await pool.query(
-        `SELECT id, name, category, price, created_at, updated_at
-         FROM   products
-         WHERE  ($1::TEXT IS NULL OR category = $1)
-         ORDER  BY updated_at DESC, id DESC
-         LIMIT  $2`,
-        [category ?? null, limit + 1],
-      );
-      rows = r;
+      const ts = updatedAt.toISOString();
+      query = query.or(`updated_at.lt.${ts},and(updated_at.eq.${ts},id.lt.${id})`);
     }
 
-    const hasMore = rows.length > limit;
-    const page    = rows.slice(0, limit);
+    const { data, error } = await query
+      .order('updated_at', { ascending: false })
+      .order('id',         { ascending: false })
+      .limit(limit + 1);           // fetch one extra to detect has_more
+
+    if (error) throw dbError(error);
+
+    const hasMore = data.length > limit;
+    const page    = data.slice(0, limit);
 
     let nextCursor = null;
     if (hasMore && page.length > 0) {
-      const last  = page[page.length - 1];
-      nextCursor  = encodeCursor(last.updated_at, last.id);
+      const last = page[page.length - 1];
+      nextCursor = encodeCursor(new Date(last.updated_at), last.id);
     }
 
     return { products: page, next_cursor: nextCursor, count: page.length, has_more: hasMore };
   });
 
   // ── GET /products/categories ───────────────────────────────────────────────
-  // Must be registered BEFORE /:id so Fastify treats it as a static segment
+  // Uses a PostgreSQL function (created by migrate.js) via RPC so we get
+  // DISTINCT in one query without fetching all 200k rows.
   app.get('/categories', {
     schema: {
       response: {
@@ -101,10 +102,9 @@ export default async function productsPlugin(app) {
       },
     },
   }, async () => {
-    const { rows } = await getPool().query(
-      'SELECT DISTINCT category FROM products ORDER BY category',
-    );
-    return { categories: rows.map((r) => r.category) };
+    const { data, error } = await getDB().rpc('get_distinct_categories');
+    if (error) throw dbError(error);
+    return { categories: data.map((r) => r.category) };
   });
 
   // ── GET /products/:id ──────────────────────────────────────────────────────
@@ -115,19 +115,17 @@ export default async function productsPlugin(app) {
         properties: { id: { type: 'string', format: 'uuid' } },
         required: ['id'],
       },
-      response: {
-        200: PRODUCT_SCHEMA,
-      },
+      response: { 200: PRODUCT_SCHEMA },
     },
   }, async (req, reply) => {
-    const { rows } = await getPool().query(
-      'SELECT id, name, category, price, created_at, updated_at FROM products WHERE id = $1',
-      [req.params.id],
-    );
-    if (rows.length === 0) {
-      reply.code(404);
-      return { error: 'Product not found' };
-    }
-    return rows[0];
+    const { data, error } = await getDB()
+      .from('products')
+      .select('id, name, category, price, created_at, updated_at')
+      .eq('id', req.params.id)
+      .maybeSingle();
+
+    if (error) throw dbError(error);
+    if (!data) { reply.code(404); return { error: 'Product not found' }; }
+    return data;
   });
 }

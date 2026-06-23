@@ -33,6 +33,15 @@ CREATE INDEX IF NOT EXISTS idx_products_category
 -- Composite: covers both category filter AND pagination in one index scan
 CREATE INDEX IF NOT EXISTS idx_products_category_updated_at_id
     ON products (category, updated_at DESC, id DESC);
+
+-- RPC called by GET /products/categories via Supabase client
+-- Returns DISTINCT categories without scanning all 200k rows (uses the index).
+CREATE OR REPLACE FUNCTION get_distinct_categories()
+RETURNS TABLE(category VARCHAR) AS $$
+  SELECT DISTINCT category FROM products ORDER BY category;
+$$ LANGUAGE SQL STABLE SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION get_distinct_categories() TO anon, authenticated;
 `;
 
 async function migrate() {
