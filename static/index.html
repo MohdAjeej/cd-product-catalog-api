@@ -8,109 +8,159 @@
   <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
   <style>
     [x-cloak] { display: none !important; }
-    .card-enter { animation: fadeSlideIn 0.25s ease both; }
-    @keyframes fadeSlideIn {
-      from { opacity: 0; transform: translateY(10px); }
+    .card-enter { animation: slideUp 0.2s ease-out both; }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(8px); }
       to   { opacity: 1; transform: translateY(0); }
     }
+    .fade-in { animation: fadeIn 0.15s ease-out; }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    .chips::-webkit-scrollbar { display: none; }
+    .chips { scrollbar-width: none; }
   </style>
 </head>
-<body class="bg-gray-50 min-h-screen" x-data="catalog()" x-init="init()" x-cloak>
+<body class="bg-slate-50 min-h-screen" x-data="catalog()" x-init="init()" x-cloak>
 
-  <!-- Header -->
-  <header class="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-      <div class="flex items-center gap-3">
-        <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
-          </svg>
+  <!-- ── Header ─────────────────────────────────────────────────────────────── -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6">
+      <div class="flex items-center gap-4 h-16">
+
+        <div class="flex items-center gap-2.5 shrink-0">
+          <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-sm">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+            </svg>
+          </div>
+          <span class="font-bold text-slate-900 tracking-tight">Catalog</span>
         </div>
-        <h1 class="text-xl font-bold text-gray-900">Product Catalog</h1>
-      </div>
 
-      <div class="sm:ml-auto flex flex-wrap items-center gap-3">
-        <!-- Category filter -->
-        <select
-          x-model="selectedCategory"
-          @change="reset()"
-          class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-        >
-          <option value="">All categories</option>
-          <template x-for="cat in categories" :key="cat">
-            <option :value="cat" x-text="cat"></option>
-          </template>
-        </select>
+        <div class="flex-1 max-w-lg mx-auto relative">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="M21 21l-4.35-4.35"/>
+          </svg>
+          <input
+            type="search"
+            x-model="search"
+            placeholder="Search loaded products…"
+            class="w-full pl-9 pr-4 py-2 text-sm bg-slate-100 border border-transparent rounded-lg focus:outline-none focus:bg-white focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-400"
+          />
+        </div>
 
-        <!-- Stats pill -->
-        <span
-          x-show="loaded > 0"
-          class="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full px-3 py-1 font-medium"
-          x-text="`${loaded.toLocaleString()} products loaded`"
-        ></span>
+        <span class="shrink-0 hidden sm:block text-xs text-slate-400 tabular-nums" x-show="loaded > 0" x-text="`${loaded.toLocaleString()} loaded`"></span>
       </div>
     </div>
   </header>
 
-  <!-- Main content -->
+  <!-- ── Filter bar ─────────────────────────────────────────────────────────── -->
+  <div class="bg-white border-b border-slate-200 sticky top-16 z-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6">
+      <div class="flex items-center gap-3 py-3">
+
+        <div class="chips flex items-center gap-2 overflow-x-auto flex-1 pb-0.5">
+          <button
+            @click="setCategory('')"
+            class="shrink-0 text-xs font-semibold px-3.5 py-1.5 rounded-full border transition-colors"
+            :class="selectedCategory === '' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'"
+          >All</button>
+          <template x-for="cat in categories" :key="cat">
+            <button
+              @click="setCategory(cat)"
+              class="shrink-0 text-xs font-semibold px-3.5 py-1.5 rounded-full border transition-colors"
+              :class="selectedCategory === cat ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'"
+              x-text="cat"
+            ></button>
+          </template>
+        </div>
+
+        <select
+          x-model="sortBy"
+          class="shrink-0 text-xs border border-slate-200 rounded-lg px-3 py-1.5 bg-white text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 cursor-pointer"
+        >
+          <option value="default">Newest first</option>
+          <option value="price_asc">Price: low → high</option>
+          <option value="price_desc">Price: high → low</option>
+          <option value="name_asc">Name: A → Z</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Main ───────────────────────────────────────────────────────────────── -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
 
     <!-- Error banner -->
-    <div x-show="error" class="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm" x-text="error"></div>
+    <div x-show="error" class="mb-6 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
+      <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+      </svg>
+      <span x-text="error"></span>
+      <button @click="error=''" class="ml-auto text-red-400 hover:text-red-600">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      </button>
+    </div>
 
-    <!-- Skeleton loader (first load) -->
-    <div x-show="firstLoad && loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+    <!-- Skeleton -->
+    <div x-show="firstLoad && loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       <template x-for="i in 12" :key="i">
-        <div class="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
-          <div class="h-3 bg-gray-200 rounded w-1/3 mb-3"></div>
-          <div class="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
-          <div class="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
-          <div class="h-6 bg-gray-200 rounded w-1/4"></div>
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden animate-pulse">
+          <div class="h-32 bg-slate-100"></div>
+          <div class="p-4 space-y-2.5">
+            <div class="h-2.5 bg-slate-100 rounded-full w-1/3"></div>
+            <div class="h-4 bg-slate-100 rounded-full w-4/5"></div>
+            <div class="h-3 bg-slate-100 rounded-full w-1/2"></div>
+            <div class="h-5 bg-slate-100 rounded-full w-1/4 mt-1"></div>
+          </div>
         </div>
       </template>
     </div>
 
-    <!-- Products grid -->
-    <div
-      x-show="!firstLoad || !loading"
-      class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
-    >
-      <template x-for="p in products" :key="p.id">
-        <div class="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow duration-200 card-enter">
-          <!-- Category badge -->
-          <span
-            class="inline-block text-xs font-semibold px-2 py-0.5 rounded-full mb-2"
-            :class="categoryColor(p.category)"
-            x-text="p.category"
-          ></span>
-          <!-- Name -->
-          <h3 class="text-sm font-semibold text-gray-800 leading-snug mb-1 line-clamp-2" x-text="p.name"></h3>
-          <!-- Updated at -->
-          <p class="text-xs text-gray-400 mb-3" x-text="'Updated ' + relativeTime(p.updated_at)"></p>
-          <!-- Price -->
-          <p class="text-lg font-bold text-indigo-600" x-text="'$' + Number(p.price).toFixed(2)"></p>
+    <!-- Product grid -->
+    <div x-show="!firstLoad || !loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <template x-for="p in visibleProducts" :key="p.id">
+        <div
+          @click="openModal(p)"
+          class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group card-enter"
+        >
+          <!-- Top accent -->
+          <div class="h-1.5" :class="cat(p.category).accent"></div>
+          <!-- Visual placeholder -->
+          <div class="h-28 flex items-center justify-center" :class="cat(p.category).bg">
+            <span class="text-4xl select-none" x-text="cat(p.category).emoji"></span>
+          </div>
+          <!-- Body -->
+          <div class="p-4">
+            <span class="inline-block text-xs font-semibold px-2 py-0.5 rounded-full mb-2.5" :class="cat(p.category).badge" x-text="p.category"></span>
+            <h3 class="text-sm font-semibold text-slate-800 leading-snug mb-1 line-clamp-2 group-hover:text-indigo-600 transition-colors" x-text="p.name"></h3>
+            <p class="text-xs text-slate-400 mb-3" x-text="relativeTime(p.updated_at)"></p>
+            <p class="text-base font-bold text-slate-900" x-text="fmt(p.price)"></p>
+          </div>
         </div>
       </template>
     </div>
 
     <!-- Empty state -->
-    <div x-show="!loading && products.length === 0 && !firstLoad" class="text-center py-24 text-gray-400">
-      <svg class="mx-auto w-12 h-12 mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-          d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
-      </svg>
-      <p class="font-medium">No products found</p>
-      <p class="text-sm mt-1">Try a different category</p>
+    <div x-show="!loading && visibleProducts.length === 0 && !firstLoad" class="flex flex-col items-center justify-center py-24">
+      <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+        <svg class="w-7 h-7 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z"/>
+        </svg>
+      </div>
+      <p class="font-semibold text-slate-600 mb-1">No products found</p>
+      <p class="text-sm text-slate-400" x-text="search ? `Nothing matches \"${search}\"` : 'Try a different category'"></p>
+      <button x-show="search" @click="search=''" class="mt-3 text-sm text-indigo-600 hover:underline">Clear search</button>
     </div>
 
     <!-- Load more -->
     <div class="mt-10 flex flex-col items-center gap-3">
       <button
-        x-show="hasMore"
+        x-show="hasMore && !search"
         @click="loadMore()"
         :disabled="loading"
-        class="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors duration-150 flex items-center gap-2"
+        class="px-8 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-colors flex items-center gap-2 shadow-sm"
       >
         <svg x-show="loading && !firstLoad" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -118,39 +168,103 @@
         </svg>
         <span x-text="loading && !firstLoad ? 'Loading…' : 'Load more'"></span>
       </button>
-      <p x-show="!hasMore && loaded > 0" class="text-sm text-gray-400">
-        All <span x-text="loaded.toLocaleString()"></span> products loaded
+      <p x-show="!hasMore && loaded > 0 && !search" class="text-sm text-slate-400">
+        All <span class="font-medium text-slate-600" x-text="loaded.toLocaleString()"></span> products loaded
+      </p>
+      <p x-show="search && visibleProducts.length > 0" class="text-sm text-slate-400">
+        <span class="font-medium text-slate-600" x-text="visibleProducts.length.toLocaleString()"></span>
+        match<span x-show="visibleProducts.length !== 1">es</span> in loaded products
       </p>
     </div>
   </main>
 
-  <script>
-    const API = '';   // Same origin - works when backend and frontend deployed together
+  <!-- ── Product detail modal ───────────────────────────────────────────────── -->
+  <div
+    x-show="modal !== null"
+    x-transition:enter="fade-in"
+    @click.self="modal = null"
+    @keydown.escape.window="modal = null"
+    class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 bg-slate-900/60 backdrop-blur-sm"
+  >
+    <div
+      x-show="modal !== null"
+      x-transition:enter="slide-in"
+      class="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm overflow-hidden"
+      @click.stop
+    >
+      <template x-if="modal !== null">
+        <div>
+          <div class="h-2 rounded-t-3xl sm:rounded-t-2xl" :class="cat(modal.category).accent"></div>
+          <!-- Image -->
+          <div class="h-44 flex items-center justify-center relative" :class="cat(modal.category).bg">
+            <span class="text-7xl select-none" x-text="cat(modal.category).emoji"></span>
+            <button @click="modal = null" class="absolute top-3 right-3 w-7 h-7 rounded-full bg-white/80 hover:bg-white flex items-center justify-center text-slate-500 hover:text-slate-700 transition-colors shadow-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <!-- Detail -->
+          <div class="p-6 pb-8">
+            <span class="inline-block text-xs font-semibold px-2 py-0.5 rounded-full mb-3" :class="cat(modal.category).badge" x-text="modal.category"></span>
+            <h2 class="text-lg font-bold text-slate-900 leading-snug mb-5" x-text="modal.name"></h2>
+            <div class="flex items-end justify-between pt-4 border-t border-slate-100">
+              <div>
+                <p class="text-xs text-slate-400 mb-0.5">Price</p>
+                <p class="text-2xl font-bold text-slate-900" x-text="fmt(modal.price)"></p>
+              </div>
+              <div class="text-right">
+                <p class="text-xs text-slate-400 mb-0.5">Updated</p>
+                <p class="text-sm font-medium text-slate-600" x-text="relativeTime(modal.updated_at)"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
 
-    const CATEGORY_COLORS = {
-      Electronics: 'bg-blue-100 text-blue-700',
-      Clothing:    'bg-pink-100 text-pink-700',
-      Books:       'bg-amber-100 text-amber-700',
-      Sports:      'bg-green-100 text-green-700',
-      Home:        'bg-orange-100 text-orange-700',
-      Beauty:      'bg-rose-100 text-rose-700',
-      Toys:        'bg-purple-100 text-purple-700',
-      Food:        'bg-lime-100 text-lime-700',
-      Automotive:  'bg-slate-100 text-slate-700',
-      Health:      'bg-teal-100 text-teal-700',
+  <script>
+    const API = '';
+
+    const CATS = {
+      Electronics: { badge: 'bg-blue-100 text-blue-700',     accent: 'bg-blue-500',    bg: 'bg-blue-50',    emoji: '💻' },
+      Clothing:    { badge: 'bg-pink-100 text-pink-700',     accent: 'bg-pink-500',    bg: 'bg-pink-50',    emoji: '👕' },
+      Books:       { badge: 'bg-amber-100 text-amber-700',   accent: 'bg-amber-500',   bg: 'bg-amber-50',   emoji: '📚' },
+      Sports:      { badge: 'bg-green-100 text-green-700',   accent: 'bg-green-500',   bg: 'bg-green-50',   emoji: '⚽' },
+      Home:        { badge: 'bg-orange-100 text-orange-700', accent: 'bg-orange-500',  bg: 'bg-orange-50',  emoji: '🏠' },
+      Beauty:      { badge: 'bg-rose-100 text-rose-700',     accent: 'bg-rose-500',    bg: 'bg-rose-50',    emoji: '✨' },
+      Toys:        { badge: 'bg-purple-100 text-purple-700', accent: 'bg-purple-500',  bg: 'bg-purple-50',  emoji: '🎮' },
+      Food:        { badge: 'bg-lime-100 text-lime-700',     accent: 'bg-lime-500',    bg: 'bg-lime-50',    emoji: '🍎' },
+      Automotive:  { badge: 'bg-slate-100 text-slate-700',   accent: 'bg-slate-500',   bg: 'bg-slate-100',  emoji: '🚗' },
+      Health:      { badge: 'bg-teal-100 text-teal-700',     accent: 'bg-teal-500',    bg: 'bg-teal-50',    emoji: '❤️' },
     };
+    const DEFAULT_CAT = { badge: 'bg-gray-100 text-gray-600', accent: 'bg-gray-400', bg: 'bg-gray-50', emoji: '📦' };
 
     function catalog() {
       return {
-        products: [],
-        categories: [],
+        products:         [],
+        categories:       [],
         selectedCategory: '',
-        cursor: null,
-        hasMore: true,
-        loading: false,
-        firstLoad: true,
-        loaded: 0,
-        error: '',
+        sortBy:           'default',
+        search:           '',
+        cursor:           null,
+        hasMore:          true,
+        loading:          false,
+        firstLoad:        true,
+        loaded:           0,
+        error:            '',
+        modal:            null,
+
+        get visibleProducts() {
+          let list = this.products;
+          if (this.search) {
+            const q = this.search.toLowerCase();
+            list = list.filter(p => p.name.toLowerCase().includes(q));
+          }
+          if (this.sortBy === 'price_asc')  return [...list].sort((a, b) => a.price - b.price);
+          if (this.sortBy === 'price_desc') return [...list].sort((a, b) => b.price - a.price);
+          if (this.sortBy === 'name_asc')   return [...list].sort((a, b) => a.name.localeCompare(b.name));
+          return list;
+        },
 
         async init() {
           await this.fetchCategories();
@@ -160,18 +274,22 @@
         async fetchCategories() {
           try {
             const res = await fetch(`${API}/products/categories`);
-            const data = await res.json();
-            this.categories = data.categories;
-          } catch (e) {
-            /* non-critical */
-          }
+            this.categories = (await res.json()).categories;
+          } catch { /* non-critical */ }
+        },
+
+        setCategory(cat) {
+          this.selectedCategory = cat;
+          this.search  = '';
+          this.sortBy  = 'default';
+          this.reset();
         },
 
         reset() {
-          this.products = [];
-          this.cursor = null;
-          this.hasMore = true;
-          this.loaded = 0;
+          this.products  = [];
+          this.cursor    = null;
+          this.hasMore   = true;
+          this.loaded    = 0;
           this.firstLoad = true;
           this.loadMore();
         },
@@ -179,39 +297,40 @@
         async loadMore() {
           if (this.loading || !this.hasMore) return;
           this.loading = true;
-          this.error = '';
-
+          this.error   = '';
           try {
             const params = new URLSearchParams({ limit: 24 });
-            if (this.cursor) params.set('cursor', this.cursor);
+            if (this.cursor)           params.set('cursor',   this.cursor);
             if (this.selectedCategory) params.set('category', this.selectedCategory);
-
             const res = await fetch(`${API}/products?${params}`);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
             const data = await res.json();
             this.products.push(...data.products);
-            this.cursor = data.next_cursor;
-            this.hasMore = data.has_more;
-            this.loaded += data.count;
+            this.cursor   = data.next_cursor;
+            this.hasMore  = data.has_more;
+            this.loaded  += data.count;
           } catch (e) {
             this.error = `Failed to load products: ${e.message}`;
           } finally {
-            this.loading = false;
+            this.loading   = false;
             this.firstLoad = false;
           }
         },
 
-        categoryColor(cat) {
-          return CATEGORY_COLORS[cat] || 'bg-gray-100 text-gray-600';
+        openModal(p) { this.modal = p; },
+
+        cat(category) { return CATS[category] || DEFAULT_CAT; },
+
+        fmt(price) {
+          return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price);
         },
 
         relativeTime(iso) {
           const diff = Date.now() - new Date(iso).getTime();
           const mins = Math.floor(diff / 60000);
-          if (mins < 60)   return `${mins}m ago`;
+          if (mins < 60)  return `${mins}m ago`;
           const hrs = Math.floor(mins / 60);
-          if (hrs < 24)    return `${hrs}h ago`;
+          if (hrs < 24)   return `${hrs}h ago`;
           return `${Math.floor(hrs / 24)}d ago`;
         },
       };
